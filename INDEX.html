@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Registrador de Comprobantes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+ .hamburger {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      width: 24px;
+      height: 20px;
+      cursor: pointer;
+      z-index: 50;
+    }
+    .hamburger div {
+      width: 100%;
+      height: 3px;
+      background-color: white;
+      transition: all 0.3s ease;
+    }
+    .hamburger.active div:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+    .hamburger.active div:nth-child(2) {
+      opacity: 0;
+    }
+    .hamburger.active div:nth-child(3) {
+      transform: rotate(-45deg) translate(7px, -7px);
+    }
+    .nav-menu {
+      position: fixed;
+      right: 0;
+      top: 64px;
+      height: calc(100% - 64px);
+      width: 250px;
+      background-color: #1f2937;
+      transform: translateX(100%);
+      transition: transform 0.4s ease-in-out, box-shadow 0.3s ease-in-out;
+      box-shadow: -5px 0 15px rgba(0,0,0,0.2);
+      z-index: 40;
+    }
+    .nav-menu.active {
+      transform: translateX(0);
+    }
+    @media (min-width: 768px) {
+      .nav-menu {
+        position: static;
+        transform: none;
+        width: auto;
+        height: auto;
+        background: transparent;
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-end;
+        box-shadow: none;
+      }
+      .hamburger {
+        display: none;
+      }
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    #tablaNotas, #tablaClientes, #tablaEstadisticas {
+      min-width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+    #tablaNotas th, 
+    #tablaNotas td,
+    #tablaClientes th, 
+    #tablaClientes td,
+    #tablaEstadisticas th,
+    #tablaEstadisticas td {
+      border: 1px solid #e5e7eb;
+      padding: 8px;
+      text-align: left;
+      font-size: 14px;
+      white-space: normal;
+    }
+    #tablaNotas th,
+    #tablaClientes th,
+    #tablaEstadisticas th {
+      background-color: #e5e7eb;
+      font-weight: 600;
+    }
+    #tablaNotas td,
+    #tablaClientes td,
+    #tablaEstadisticas td {
+      background-color: #ffffff;
+    }
+    #tablaNotas th:last-child,
+    #tablaNotas td:last-child,
+    #tablaClientes th:last-child,
+    #tablaClientes td:last-child,
+    #tablaEstadisticas th:last-child,
+    #tablaEstadisticas td:last-child {
+      min-width: 120px;
+    }
+    #tablaNotas .acciones,
+    #tablaClientes .acciones,
+    #tablaEstadisticas .acciones {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      align-items: center;
+    }
+    #tablaNotas .acciones button,
+    #tablaClientes .acciones button,
+    #tablaEstadisticas .acciones button {
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+      white-space: nowrap;
+    }
+    @media (max-width: 640px) {
+      #tablaNotas th, 
+      #tablaNotas td,
+      #tablaClientes th, 
+      #tablaClientes td,
+      #tablaEstadisticas th,
+      #tablaEstadisticas td {
+        font-size: 12px;
+        padding: 4px;
+      }
+      #tablaNotas th:last-child,
+      #tablaNotas td:last-child,
+      #tablaClientes th:last-child,
+      #tablaClientes td:last-child,
+      #tablaEstadisticas th:last-child,
+      #tablaEstadisticas td:last-child {
+        min-width: 100px;
+      }
+      #tablaNotas .acciones,
+      #tablaClientes .acciones,
+      #tablaEstadisticas .acciones {
+        gap: 4px;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      #tablaNotas .acciones button,
+      #tablaClientes .acciones button,
+      #tablaEstadisticas .acciones button {
+        padding: 2px 6px;
+        font-size: 10px;
+        width: 100%;
+        text-align: center;
+      }
+    }
+    @media (max-width: 400px) {
+      #tablaNotas th, 
+      #tablaNotas td,
+      #tablaClientes th, 
+      #tablaClientes td,
+      #tablaEstadisticas th,
+      #tablaEstadisticas td {
+        font-size: 10px;
+        padding: 3px;
+      }
+      #tablaNotas .acciones button,
+      #tablaClientes .acciones button,
+      #tablaEstadisticas .acciones button {
+        padding: 2px 4px;
+        font-size: 9px;
+      }
+    }
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin-top: 20px;
+    }
+
+  </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen">
+  <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg">
+    <h1 class="text-2xl font-bold">Registrador de Comprobantes</h1>
+    <div class="hamburger md:hidden" onclick="toggleMenu()">
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+  </header>
+
+  <nav class="nav-menu flex flex-col p-4 pt-4 md:static md:flex md:flex-row md:w-full md:bg-transparent md:p-0 md:pt-0 md:justify-end md:items-center transition-transform duration-300 no-scrollbar">
+    <button onclick="mostrarSeccion('clientes'); toggleMenu()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg m-2 transition-colors duration-200 md:bg-transparent md:text-white md:hover:bg-blue-700">Registrar Docente</button>
+    <button onclick="mostrarSeccion('notas'); toggleMenu()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg m-2 transition-colors duration-200 md:bg-transparent md:text-white md:hover:bg-purple-700">Registrar Comprobante</button>
+    <button onclick="mostrarSeccion('notasRegistradas'); toggleMenu()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg m-2 transition-colors duration-200 md:bg-transparent md:text-white md:hover:bg-green-700">Comprobantes Registrados</button>
+    <button onclick="mostrarSeccion('estadisticas'); toggleMenu(); actualizarEstadisticas()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg m-2 transition-colors duration-200 md:bg-transparent md:text-white md:hover:bg-yellow-700">Estadísticas</button>
+  </nav>
+
+  <main class="container mx-auto p-4 max-w-4xl">
+    <div id="clientes" class="section active bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Registrar Docente</h2>
+      <div class="mb-4">
+        <label class="block text-gray-700 font-medium mb-1">Nombre:</label>
+        <input type="text" id="nombreCliente" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 font-medium mb-1">Teléfono:</label>
+        <input type="text" id="telefonoCliente" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <button onclick="guardarCliente()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200">Guardar Datos Del Docente</button>
+
+      <h3 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Docentes Registrados</h3>
+      <div class="overflow-x-auto">
+        <table id="tablaClientes" class="w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="border p-2 text-left">Docente</th>
+              <th class="border p-2 text-left">Teléfono</th>
+              <th class="border p-2 text-left">Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+<!-- Modal de detalle de tickets por cliente -->
+<div id="modalDetalle" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 relative">
+      <h2 id="tituloDetalle" class="text-xl font-semibold text-gray-800 mb-4"></h2>
+      <div id="contenidoDetalle" class="space-y-2 max-h-80 overflow-y-auto"></div>
+      <button onclick="cerrarModalDetalle()" class="absolute top-2 right-2 text-gray-500 hover:text-red-600 text-lg font-bold">&times;</button>
+    </div>
+  </div>
+  
+    <div id="notas" class="section hidden bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Registrar Comprobantes</h2>
+      <div class="mb-4">
+        <label class="block text-gray-700 font-medium mb-1">Nº de Nota:</label>
+        <span id="numeroNota" class="text-gray-600">1</span>
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 font-medium mb-1">Docente:</label>
+        <select id="clienteNota" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"></select>
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 font-medium mb-1">Descripción:</label>
+        <input type="text" id="descripcionNota" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 font-medium mb-1">Cantidad:</label>
+        <input type="number" id="cantidadNota" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+      </div>
+      <div class="mb-4">
+        <label class="block text-gray-700 font-medium mb-1">Fecha y Hora:</label>
+        <span id="fechaNota" class="text-gray-600"></span>
+      </div>
+      <button onclick="guardarNota()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200">Guardar Nota</button>
+    </div>
+
+    <div id="notasRegistradas" class="section hidden bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Notas de Comprobantes Registrados</h2>
+      <div class="mb-4 flex flex-wrap gap-4 items-center">
+        <select id="filtroCliente" class="p-2 border rounded-lg">
+          <option value="">Todos los docentes</option>
+        </select>
+        <select id="filtroMes" class="p-2 border rounded-lg">
+          <option value="">Todos los meses</option>
+          <option value="1">Enero</option>
+          <option value="2">Febrero</option>
+          <option value="3">Marzo</option>
+          <option value="4">Abril</option>
+          <option value="5">Mayo</option>
+          <option value="6">Junio</option>
+          <option value="7">Julio</option>
+          <option value="8">Agosto</option>
+          <option value="9">Septiembre</option>
+          <option value="10">Octubre</option>
+          <option value="11">Noviembre</option>
+          <option value="12">Diciembre</option>
+        </select>
+        <input type="date" id="fechaInicio" class="p-2 border rounded-lg" placeholder="Desde" />
+        <input type="date" id="fechaFin" class="p-2 border rounded-lg" placeholder="Hasta" />
+        
+        <button onclick="limpiarFiltros()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition">Limpiar Filtros</button>
+        <button onclick="exportarNotasExcel()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">Exportar Excel</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="tablaNotas" class="w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="border p-2 text-left">Nº</th>
+              <th class="border p-2 text-left">Docente</th>
+              <th class="border p-2 text-left">Descripción</th>
+              <th class="border p-2 text-left">Cantidad</th>
+              <th class="border p-2 text-left">Fecha</th>
+              <th class="border p-2 text-left">Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="estadisticas" class="section hidden bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Estadísticas de Notas por Cliente</h2>
+      <div class="mb-4 flex flex-wrap gap-4 items-center">
+        <select id="filtroPeriodoEstadisticas" class="p-2 border rounded-lg">
+          <option value="anual">Anual</option>
+          <option value="mensual">Mensual</option>
+        </select>
+        <select id="filtroAnioEstadisticas" class="p-2 border rounded-lg">
+          <!-- Se llenará dinámicamente con los años disponibles -->
+        </select>
+        <select id="filtroMesEstadisticas" class="p-2 border rounded-lg" style="display: none;">
+          <option value="">Todos los meses</option>
+          <option value="1">Enero</option>
+          <option value="2">Febrero</option>
+          <option value="3">Marzo</option>
+          <option value="4">Abril</option>
+          <option value="5">Mayo</option>
+          <option value="6">Junio</option>
+          <option value="7">Julio</option>
+          <option value="8">Agosto</option>
+          <option value="9">Septiembre</option>
+          <option value="10">Octubre</option>
+          <option value="11">Noviembre</option>
+          <option value="12">Diciembre</option>
+        </select>
+        <button onclick="actualizarEstadisticas()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Aplicar Filtros</button>
+        <button onclick="limpiarFiltrosEstadisticas()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition">Limpiar Filtros</button>
+        <button onclick="exportarEstadisticasExcel()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">Exportar Excel</button>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table id="tablaEstadisticas" class="w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="border p-2 text-left">Docente</th>
+              <th class="border p-2 text-left">Cantidad de Notas</th>
+              <th class="border p-2 text-left">Total de Productos</th>
+              <th class="border p-2 text-left">Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      
+      <div class="chart-container">
+        <canvas id="graficoEstadisticas"></canvas>
+      </div>
+    </div>
+
+    <div id="ticketPreview" style="width:300px; padding:15px; background:white; border:1px solid #ccc; font-family:Arial; display:none;">
+      <h3 style="text-align:center;">COMPROBANTE DE CANTIDADES</h3>
+      <hr>
+      <p><strong>Nota N°:</strong> <span id="previewNumero"></span></p>
+      <p><strong>Docente:</strong> <span id="previewCliente"></span></p>
+      <p><strong>Descripción:</strong> <span id="previewDescripcion"></span></p>
+      <p><strong>Cantidad:</strong> <span id="previewCantidad"></span></p>
+      <p><strong>Fecha:</strong> <span id="previewFecha"></span></p>
+      <hr>
+      <p style="text-align:center;">¡Recuerda Guardar Tu Comprobante!</p>
+    </div>
+  </main>
+
+  <script>
+    let clientes = JSON.parse(localStorage.getItem('clientes')) || [];
+    let notas = JSON.parse(localStorage.getItem('notas')) || [];
+    let graficoEstadisticas = null;
+
+    const nombreCliente = document.getElementById('nombreCliente');
+    const telefonoCliente = document.getElementById('telefonoCliente');
+    const clienteNota = document.getElementById('clienteNota');
+    const descripcionNota = document.getElementById('descripcionNota');
+    const cantidadNota = document.getElementById('cantidadNota');
+    const numeroNota = document.getElementById('numeroNota');
+    const fechaNota = document.getElementById('fechaNota');
+    const filtroCliente = document.getElementById('filtroCliente');
+    const filtroMes = document.getElementById('filtroMes');
+    const fechaInicio = document.getElementById('fechaInicio');
+    const fechaFin = document.getElementById('fechaFin');
+
+    // Función para parsear fechas de forma robusta
+    const parsearFecha = (fechaStr) => {
+      try {
+        if (!fechaStr || typeof fechaStr !== 'string') return null;
+
+        // 1. Intentar como ISO o reconocida automáticamente
+        let fecha = new Date(fechaStr);
+        if (!isNaN(fecha.getTime())) return fecha;
+
+        // 2. Reemplazar comas por espacio, si las hay
+        let cleanStr = fechaStr.replace(',', '').replace('T', ' ');
+
+        // 3. Buscar patrón tipo DD/MM/YYYY HH:mm:ss o DD-MM-YYYY HH:mm:ss
+        const match = cleanStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s*(\d{2}:\d{2}(:\d{2})?)?$/);
+        if (match) {
+          const [, dia, mes, anio, hora] = match;
+          const horaParte = hora || '00:00:00';
+          fecha = new Date(`${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}T${horaParte}`);
+          if (!isNaN(fecha.getTime())) return fecha;
+        }
+
+        // 4. Buscar patrón tipo YYYY/MM/DD
+        const matchYMD = cleanStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+        if (matchYMD) {
+          const [, anio, mes, dia] = matchYMD;
+          fecha = new Date(`${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`);
+          if (!isNaN(fecha.getTime())) return fecha;
+        }
+
+        console.warn(`No se pudo parsear la fecha: ${fechaStr}`);
+        return null;
+      } catch (e) {
+        console.warn(`Error al parsear fecha: ${fechaStr}`, e);
+        return null;
+      }
+    };
+
+    // Actualizar años disponibles
+    const cargarAniosDisponibles = () => {
+      const filtroAnio = document.getElementById('filtroAnioEstadisticas');
+      filtroAnio.innerHTML = '';
+
+      // Obtener años únicos de las notas
+      const anios = [...new Set(notas.map(nota => {
+        const fecha = parsearFecha(nota.fecha);
+        return fecha ? fecha.getFullYear() : null;
+      }).filter(anio => anio !== null))].sort((a, b) => b - a);
+
+      // Si no hay notas, usar el año actual
+      if (anios.length === 0) {
+        anios.push(new Date().getFullYear());
+      }
+
+      anios.forEach(anio => {
+        filtroAnio.innerHTML += `<option value="${anio}">${anio}</option>`;
+      });
+
+      // Seleccionar el año más reciente por defecto
+      if (anios.length > 0) {
+        filtroAnio.value = anios[0];
+      }
+    };
+
+    // Actualizar estadísticas
+    const actualizarEstadisticas = () => {
+      const periodo = document.getElementById('filtroPeriodoEstadisticas').value;
+      const anio = parseInt(document.getElementById('filtroAnioEstadisticas').value);
+      const mes = document.getElementById('filtroMesEstadisticas').value;
+
+      console.log('Filtros aplicados:', { periodo, anio, mes });
+
+      // Filtrar notas según los parámetros seleccionados
+      let notasFiltradas = notas.filter((nota) => {
+        const fechaNota = parsearFecha(nota.fecha);
+        if (!fechaNota || isNaN(fechaNota.getTime())) {
+          console.warn('Nota con fecha inválida:', nota);
+          return false;
+        }
+
+        const anioNota = fechaNota.getFullYear();
+        if (anioNota !== anio) return false;
+
+        if (periodo === 'mensual' && mes) {
+          const mesNota = fechaNota.getMonth() + 1;
+          if (mesNota !== parseInt(mes)) return false;
+        }
+
+        return true;
+      });
+
+      console.log('Notas filtradas:', notasFiltradas);
+
+      // Agrupar por cliente
+      const estadisticas = {};
+      notasFiltradas.forEach((nota) => {
+        if (!estadisticas[nota.cliente]) {
+          estadisticas[nota.cliente] = {
+            cantidadNotas: 0,
+            totalProductos: 0,
+          };
+        }
+        estadisticas[nota.cliente].cantidadNotas++;
+        estadisticas[nota.cliente].totalProductos += nota.cantidad;
+      });
+
+      console.log('Estadísticas agrupadas:', estadisticas);
+
+      // Ordenar por cantidad de notas (de mayor a menor)
+      const estadisticasOrdenadas = Object.entries(estadisticas).sort(
+        (a, b) => b[1].cantidadNotas - a[1].cantidadNotas
+      );
+
+      // Actualizar tabla
+      const tbody = document.querySelector('#tablaEstadisticas tbody');
+      tbody.innerHTML = '';
+
+      if (estadisticasOrdenadas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="border p-2 text-center">No hay datos para mostrar</td></tr>`;
+      } else {
+        estadisticasOrdenadas.forEach(([cliente, datos]) => {
+          tbody.innerHTML += `
+            <tr>
+              <td class="border p-2">${cliente}</td>
+              <td class="border p-2">${datos.cantidadNotas}</td>
+              <td class="border p-2">${datos.totalProductos}</td>
+              <td class="border p-2 acciones">
+                <button onclick="verDetalleCliente('${cliente}')" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded-lg">Ver Detalle</button>
+              </td>
+            </tr>`;
+        });
+      }
+
+      // Actualizar gráfico
+      actualizarGraficoEstadisticas(estadisticasOrdenadas);
+    };
+
+    // Actualizar gráfico de estadísticas
+    const actualizarGraficoEstadisticas = (datos) => {
+      const ctx = document.getElementById('graficoEstadisticas').getContext('2d');
+
+      // Destruir gráfico anterior si existe
+      if (graficoEstadisticas) {
+        graficoEstadisticas.destroy();
+      }
+
+      // Limitar a los primeros 10 clientes para mejor visualización
+      const datosLimitados = datos.slice(0, 5);
+
+      graficoEstadisticas = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: datosLimitados.map(item => item[0]),
+          datasets: [
+            {
+              label: 'Cantidad de Notas',
+              data: datosLimitados.map(item => item[1].cantidadNotas),
+              backgroundColor: 'rgba(54, 162, 235, 0.7)',
+              borderColor: 'rgba(54, 162, 235, 1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Total de Productos',
+              data: datosLimitados.map(item => item[1].totalProductos),
+              backgroundColor: 'rgba(75, 192, 192, 0.7)',
+              borderColor: 'rgba(75, 192, 192, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: 'Estadísticas de Notas por Cliente',
+              font: {
+                size: 16
+              }
+            },
+            legend: {
+              position: 'top'
+            }
+          }
+        }
+      });
+    };
+
+    const actualizarFecha = () => {
+      const now = new Date();
+      fechaNota.textContent = now.toLocaleString();
+    };
+
+    const actualizarClientes = () => {
+      const tbody = document.querySelector('#tablaClientes tbody');
+      tbody.innerHTML = '';
+      clienteNota.innerHTML = '';
+      clientes.forEach((c, index) => {
+        tbody.innerHTML += `
+          <tr>
+            <td class="border p-2">${c.nombre}</td>
+            <td class="border p-2">${c.telefono}</td>
+            <td class="border p-2 acciones">
+              <button onclick="eliminarCliente(${index})" class="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded-lg">Eliminar</button>
+            </td>
+          </tr>`;
+        clienteNota.innerHTML += `<option value="${c.telefono}">${c.nombre}</option>`;
+      });
+      cargarOpcionesFiltroCliente();
+    };
+
+    const eliminarCliente = (index) => {
+      const cliente = clientes[index];
+      if (!confirm(`¿Seguro que quieres eliminar al cliente ${cliente.nombre}?`)) return;
+      
+      // Check if the client has associated notes
+      const hasNotes = notas.some(nota => nota.telefono === cliente.telefono);
+      if (hasNotes) {
+        alert('No se puede eliminar este cliente porque tiene notas asociadas.');
+        return;
+      }
+
+      clientes.splice(index, 1);
+      localStorage.setItem('clientes', JSON.stringify(clientes));
+      actualizarClientes();
+    };
+
+    const guardarCliente = () => {
+      const nombre = nombreCliente.value.trim();
+      let telefono = telefonoCliente.value.trim().replace(/\D/g, '');
+      if (!nombre || !telefono) return alert('Completa todos los campos');
+      if (clientes.some(c => c.telefono === telefono)) return alert('El cliente ya existe');
+      clientes.push({ nombre, telefono });
+      localStorage.setItem('clientes', JSON.stringify(clientes));
+      nombreCliente.value = '';
+      telefonoCliente.value = '';
+      actualizarClientes();
+    };
+
+    const guardarNota = () => {
+      const telefono = clienteNota.value;
+      const clienteSeleccionado = clientes.find(c => c.telefono === telefono);
+      if (!clienteSeleccionado) {
+        alert('Por favor, selecciona un cliente válido.');
+        return;
+      }
+      const cliente = clienteSeleccionado.nombre;
+      const descripcion = descripcionNota.value.trim();
+      const cantidad = parseInt(cantidadNota.value);
+      const fecha = new Date().toLocaleString();
+      const numero = parseInt(numeroNota.textContent);
+
+      if (!cliente) {
+        alert('Por favor, selecciona un cliente válido.');
+        return;
+      }
+      if (!descripcion) {
+        alert('Por favor, ingresa una descripción.');
+        return;
+      }
+      if (isNaN(cantidad) || cantidad <= 0) {
+        alert('Por favor, ingresa una cantidad válida.');
+        return;
+      }
+
+      const nuevaNota = { numero, cliente, descripcion, cantidad, fecha, telefono };
+      notas.push(nuevaNota);
+      localStorage.setItem('notas', JSON.stringify(notas));
+      console.log('Nota guardada:', nuevaNota);
+      actualizarNotas();
+      actualizarFecha();
+      descripcionNota.value = '';
+      cantidadNota.value = '';
+
+      try {
+        document.getElementById('previewNumero').textContent = numero;
+        document.getElementById('previewCliente').textContent = cliente;
+        document.getElementById('previewDescripcion').textContent = descripcion;
+        document.getElementById('previewCantidad').textContent = cantidad;
+        document.getElementById('previewFecha').textContent = fecha;
+
+        const ticket = document.getElementById('ticketPreview');
+        ticket.style.display = 'block';
+        html2canvas(ticket).then(canvas => {
+          ticket.style.display = 'none';
+          const imgData = canvas.toDataURL("image/png");
+          const link = document.createElement('a');
+          link.href = imgData;
+          link.download = `ticket_${numero}.png`;
+          link.click();
+          const mensaje = encodeURIComponent(`Buen día, le adjunto su ticket:\n${descripcion} (x${cantidad})`);
+          const url = `https://wa.me/51${telefono}?text=${mensaje}`;
+          window.open(url, '_blank');
+          // Switch to "Notas Registradas" after saving
+          mostrarSeccion('notasRegistradas');
+        }).catch(err => {
+          console.error('Error generating ticket:', err);
+          alert('Error al generar el ticket, pero la nota se guardó correctamente.');
+          mostrarSeccion('notasRegistradas');
+        });
+      } catch (err) {
+        console.error('Error in guardarNota:', err);
+        alert('Error al generar el ticket, pero la nota se guardó correctamente.');
+        mostrarSeccion('notasRegistradas');
+      }
+    };
+
+    const actualizarNotas = () => {
+      const tbody = document.querySelector('#tablaNotas tbody');
+      tbody.innerHTML = '';
+
+      let filtradas = [...notas];
+      const fc = localStorage.getItem('filtroCliente') || '';
+      const fm = localStorage.getItem('filtroMes') || '';
+      const fi = localStorage.getItem('fechaInicio') || '';
+      const ff = localStorage.getItem('fechaFin') || '';
+
+      console.log('Notas antes de filtrar:', notas);
+      console.log('Filtros aplicados:', { fc, fm, fi, ff });
+
+      if (fc) {
+        filtradas = filtradas.filter(n => n.cliente === fc);
+      }
+      if (fm && !isNaN(parseInt(fm))) {
+        filtradas = filtradas.filter(n => {
+          const fecha = new Date(n.fecha);
+          const isValidDate = !isNaN(fecha.getTime());
+          if (!isValidDate) {
+            console.warn(`Fecha inválida encontrada en nota: ${n.fecha}`);
+            return false;
+          }
+          return fecha.getMonth() + 1 === parseInt(fm);
+        });
+      }
+      if (fi) {
+        const inicio = new Date(fi);
+        if (!isNaN(inicio.getTime())) {
+          filtradas = filtradas.filter(n => {
+            const fecha = new Date(n.fecha);
+            const isValidDate = !isNaN(fecha.getTime());
+            return isValidDate && fecha >= inicio;
+          });
+        }
+      }
+      if (ff) {
+        const fin = new Date(ff);
+        if (!isNaN(fin.getTime())) {
+          filtradas = filtradas.filter(n => {
+            const fecha = new Date(n.fecha);
+            const isValidDate = !isNaN(fecha.getTime());
+            return isValidDate && fecha <= fin;
+          });
+        }
+      }
+
+      console.log('Notas después de filtrar:', filtradas);
+
+      filtradas.sort((a, b) => b.numero - a.numero).forEach((n, index) => {
+        const originalIndex = notas.findIndex(note => note.numero === n.numero);
+        if (originalIndex === -1) {
+          console.warn(`No se encontró el índice original para la nota:`, n);
+          return;
+        }
+        tbody.innerHTML += `
+          <tr>
+            <td class="border p-2">${n.numero}</td>
+            <td class="border p-2">${n.cliente}</td>
+            <td class="border p-2">${n.descripcion}</td>
+            <td class="border p-2">${n.cantidad}</td>
+            <td class="border p-2">${n.fecha}</td>
+            <td class="border p-2 acciones">
+              <button onclick="editarNota(${originalIndex})" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-2 rounded-lg">Editar</button>
+              <button onclick="eliminarNota(${originalIndex})" class="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded-lg">Eliminar</button>
+              <button onclick="reenviarWhatsApp('${n.telefono}', '${n.descripcion}', ${n.cantidad})" class="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded-lg">Reenviar</button>
+            </td>
+          </tr>`;
+      });
+
+      numeroNota.textContent = notas.length > 0 ? Math.max(...notas.map(n => n.numero)) + 1 : 1;
+    };
+
+    const editarNota = (index) => {
+      if (!confirm('¿Estás seguro de editar esta nota?')) return;
+      const nuevaDescripcion = prompt('Nueva descripción:', notas[index].descripcion);
+      const nuevaCantidad = prompt('Nueva cantidad:', notas[index].cantidad);
+      if (nuevaDescripcion && nuevaCantidad) {
+        notas[index].descripcion = nuevaDescripcion;
+        notas[index].cantidad = parseInt(nuevaCantidad);
+        localStorage.setItem('notas', JSON.stringify(notas));
+        actualizarNotas();
+      }
+    };
+
+    const eliminarNota = (index) => {
+      if (!confirm('¿Seguro que quieres eliminar esta nota?')) return;
+      notas.splice(index, 1);
+      localStorage.setItem('notas', JSON.stringify(notas));
+      actualizarNotas();
+    };
+
+    const reenviarWhatsApp = (telefono, descripcion, cantidad) => {
+      const clienteSeleccionado = clientes.find(c => c.telefono === telefono);
+      if (!clienteSeleccionado) {
+        alert('Por favor, selecciona un cliente válido.');
+        return;
+      }
+      const cliente = clienteSeleccionado.nombre;
+      const telefonoLimpio = telefono.replace(/\D/g, '');
+      const mensaje = encodeURIComponent(`Buen día ${cliente}, le adjunto su ticket: ${descripcion} (x${cantidad})`);
+      const link = `https://wa.me/51${telefonoLimpio}?text=${mensaje}`;
+      window.open(link, '_blank');
+    };
+
+    const mostrarSeccion = (id) => {
+      document.querySelectorAll('.section').forEach(sec => sec.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+    };
+
+    const toggleMenu = () => {
+      const nav = document.querySelector('.nav-menu');
+      const hamburger = document.querySelector('.hamburger');
+      nav.classList.toggle('active');
+      hamburger.classList.toggle('active');
+    };
+
+    const aplicarFiltros = () => {
+      localStorage.setItem('filtroCliente', filtroCliente.value);
+      localStorage.setItem('filtroMes', filtroMes.value);
+      localStorage.setItem('fechaInicio', fechaInicio.value);
+      localStorage.setItem('fechaFin', fechaFin.value);
+      actualizarNotas();
+    };
+
+    const limpiarFiltros = () => {
+      filtroCliente.value = '';
+      filtroMes.value = '';
+      fechaInicio.value = '';
+      fechaFin.value = '';
+      localStorage.removeItem('filtroCliente');
+      localStorage.removeItem('filtroMes');
+      localStorage.removeItem('fechaInicio');
+      localStorage.removeItem('fechaFin');
+      actualizarNotas();
+    };
+
+    const cargarFiltrosGuardados = () => {
+      filtroCliente.value = localStorage.getItem('filtroCliente') || '';
+      filtroMes.value = localStorage.getItem('filtroMes') || '';
+      fechaInicio.value = localStorage.getItem('fechaInicio') || '';
+      fechaFin.value = localStorage.getItem('fechaFin') || '';
+    };
+
+    const cargarOpcionesFiltroCliente = () => {
+      filtroCliente.innerHTML = `<option value="">Todos los clientes</option>`;
+      clientes.forEach(c => {
+        filtroCliente.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+      });
+    };
+
+    const exportarNotasExcel = () => {
+      let filtradas = [...notas];
+      const fc = filtroCliente.value;
+      const fm = filtroMes.value;
+      const fi = fechaInicio.value;
+      const ff = fechaFin.value;
+
+      if (fc) {
+        filtradas = filtradas.filter(n => n.cliente === fc);
+      }
+      if (fm && !isNaN(parseInt(fm))) {
+        filtradas = filtradas.filter(n => {
+          const fecha = new Date(n.fecha);
+          return !isNaN(fecha.getTime()) && fecha.getMonth() + 1 === parseInt(fm);
+        });
+      }
+      if (fi) {
+        const inicio = new Date(fi);
+        if (!isNaN(inicio.getTime())) {
+          filtradas = filtradas.filter(n => {
+            const fecha = new Date(n.fecha);
+            return !isNaN(fecha.getTime()) && fecha >= inicio;
+          });
+        }
+      }
+      if (ff) {
+        const fin = new Date(ff);
+        if (!isNaN(fin.getTime())) {
+          filtradas = filtradas.filter(n => {
+            const fecha = new Date(n.fecha);
+            return !isNaN(fecha.getTime()) && fecha <= fin;
+          });
+        }
+      }
+
+      const data = filtradas.map(n => ({
+        Numero: n.numero,
+        Cliente: n.cliente,
+        Descripcion: n.descripcion,
+        Cantidad: n.cantidad,
+        Fecha: n.fecha
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Notas");
+      XLSX.writeFile(wb, "Notas_de_venta.xlsx");
+    };
+
+    const exportarEstadisticasExcel = () => {
+      const periodo = document.getElementById('filtroPeriodoEstadisticas').value;
+      const anio = document.getElementById('filtroAnioEstadisticas').value;
+      const mes = document.getElementById('filtroMesEstadisticas').value;
+
+      // Obtener datos de la tabla
+      const filas = document.querySelectorAll('#tablaEstadisticas tbody tr');
+      const data = [];
+
+      filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        data.push({
+          Cliente: celdas[0].textContent,
+          'Cantidad de Notas': celdas[1].textContent,
+          'Total de Productos': celdas[2].textContent
+        });
+      });
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+
+      let nombreArchivo = `Estadisticas_${anio}`;
+      if (periodo === 'mensual' && mes) {
+        const nombreMes = document.getElementById('filtroMesEstadisticas').options[document.getElementById('filtroMesEstadisticas').selectedIndex].text;
+        nombreArchivo += `_${nombreMes}`;
+      }
+      nombreArchivo += `_${periodo}.xlsx`;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Estadísticas");
+      XLSX.writeFile(wb, nombreArchivo);
+    };
+
+    const limpiarFiltrosEstadisticas = () => {
+      document.getElementById('filtroPeriodoEstadisticas').value = 'anual';
+      document.getElementById('filtroAnioEstadisticas').selectedIndex = 0;
+      document.getElementById('filtroMesEstadisticas').value = '';
+      document.getElementById('filtroMesEstadisticas').style.display = 'none';
+      actualizarEstadisticas();
+    };
+
+    document.getElementById('filtroPeriodoEstadisticas').addEventListener('change', actualizarEstadisticas);
+    document.getElementById('filtroAnioEstadisticas').addEventListener('change', actualizarEstadisticas);
+    document.getElementById('filtroMesEstadisticas').addEventListener('change', actualizarEstadisticas);
+
+    // Configurar eventos para los filtros de estadísticas
+    document.getElementById('filtroPeriodoEstadisticas').addEventListener('change', function() {
+      const filtroMes = document.getElementById('filtroMesEstadisticas');
+      if (this.value === 'anual') {
+        filtroMes.style.display = 'none';
+      } else {
+        filtroMes.style.display = 'block';
+      }
+    });
+
+    // Llamadas iniciales
+    actualizarClientes();
+    actualizarNotas();
+    actualizarFecha();
+    setInterval(actualizarFecha, 1000);
+    cargarFiltrosGuardados();
+    filtroCliente.addEventListener('change', aplicarFiltros);
+    filtroMes.addEventListener('change', aplicarFiltros);
+    fechaInicio.addEventListener('change', aplicarFiltros);
+    fechaFin.addEventListener('change', aplicarFiltros);
+
+    cargarOpcionesFiltroCliente();
+    cargarAniosDisponibles();
+
+    function verDetalleCliente(cliente) {
+  const notasCliente = notas.filter(nota => nota.cliente === cliente);
+  const modal = document.getElementById('modalDetalle');
+  const modalContenido = document.getElementById('contenidoDetalle');
+  const modalTitulo = document.getElementById('tituloDetalle');
+
+  if (notasCliente.length === 0) {
+    modalTitulo.textContent = `Sin tickets`;
+    modalContenido.innerHTML = `<p class="text-gray-600">No hay tickets registrados para el cliente <strong>${cliente}</strong>.</p>`;
+  } else {
+    modalTitulo.textContent = `Tickets de ${cliente}`;
+    modalContenido.innerHTML = notasCliente.map(nota => `
+      <div class="border-b border-gray-200 py-2">
+        <p><strong>Nota N°:</strong> ${nota.numero}</p>
+        <p><strong>Descripción:</strong> ${nota.descripcion}</p>
+        <p><strong>Cantidad:</strong> ${nota.cantidad}</p>
+        <p><strong>Fecha:</strong> ${nota.fecha}</p>
+      </div>
+    `).join('');
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function cerrarModalDetalle() {
+  document.getElementById('modalDetalle').classList.add('hidden');
+}
+
+
+  </script>
+</body>
+</html>
